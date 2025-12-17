@@ -1,0 +1,65 @@
+extends layout
+
+block content
+	.container
+		form(method='post', action='/users/register', enctype='multipart/form-data')
+			h1	Register
+			p 	Please Register using the form below
+
+
+			div.form-group
+			label(for='name') Name:
+			input#name.form-control(type='text', placeholder='Enter Name' name='name'  value=formData.name || ""  class=errors.name ? "error-input" : "")
+
+			if errors && errors.name
+				small.error-text #{errors.name}
+
+
+
+
+			div.form-group
+			label(for='email') Email:
+			input#email.form-control(type='email', placeholder='Enter Email' name='email' value=formData.email || ""   class=errors.email ? "error-input" : "")
+
+				
+			if errors && errors.email
+				small.error-text #{errors.email}
+
+			
+			
+			
+			div.form-group
+			label(for='username') Username:
+			input#username.form-control(type='text', placeholder='Enter Username' name='username' value=formData.username || "")
+
+			if errors.username && errors.username
+				small.error-text #{errors.username}
+			
+			
+			div.form-group
+			label(for='password') Password:
+			input#password.form-control(type='password', placeholder='Enter Password' name='password')
+
+			if errors.password && errors.password
+				small.error-text #{errors.password}
+			
+			div.form-group
+			label(for='confirmPassword') Confirm Password:
+			input#confirmPassword.form-control(type='password', placeholder='Confirm Password' name='confirmPassword')
+
+			if errors.confirmPassword && errors.confirmPassword
+				small.error-text #{errors.confirmPassword}
+
+			div.form-group
+			label(for='profile') Profile Image:
+			input#profile.form-control(type='file', name='profile')
+			br
+			button.btn.btn-primary(type='submit') Register
+							
+
+
+
+	//- ul.errors
+		//- 	if errors
+		//- 		each error, i in errors
+		//- 			li.alert.alert-danger #{error.msg}

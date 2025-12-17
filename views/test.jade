@@ -1,0 +1,74 @@
+extends layout
+
+block content
+	.container
+		ul.errors
+			if errors
+				each error, i in errors
+					li.alert.alert-danger #{error.msg}
+		form(method='post', action='/users/register', enctype='multipart/form-data')
+			h1	Register
+			p 	Please Register using the form below
+
+			
+			div.form-group
+			label(for='name') Name:
+			input#name.form-control(type='text', placeholder='Enter Name' name='name'  value=formData.name || "")
+
+			
+
+
+			div.form-group
+			label(for='email') Email:
+			input#email.form-control
+			
+			(
+				type='email', placeholder='Enter Email' name='email' 
+				
+				
+			//- 	value=formData?.email || ""
+			//- class=errors?.find(e => e.path === "email") ? "error-input" : ""
+			)
+
+
+			div.form-group
+			label(for='username') Username:
+			input#username.form-control
+			
+			(
+				type='text', placeholder='Enter Username' name='username', 
+				
+				
+			//- 	value=formData?.username || ""
+			//-   class=errors?.find(e => e.path === "username") ? "error-input" : ""
+			)
+
+
+			div.form-group
+			label(for='password') Password:
+			input#password.form-control
+			
+			(
+				type='password', placeholder='Enter Password' name='password' 
+
+			//- class=errors?.find(e => e.path === "password") ? "error-input" : ""
+			)
+
+
+			div.form-group
+			label(for='confirmPassword') Confirm Password:
+			input#confirmPassword.form-control
+			
+			(
+				type='password', placeholder='Confirm Password' name='confirmPassword'
+
+			//- class=errors?.find(e => e.path === "confirmPassword") ? "error-input" : ""
+			)
+
+
+			div.form-group
+			label(for='profile') Profile Image:
+			input#profile.form-control(type='file', name='profile')
+			br
+			button.btn.btn-primary(type='submit') Register
+							
