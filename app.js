@@ -10,12 +10,10 @@ var passport = require("passport");
 var localStrategy = require("passport-local").Strategy;
 var multer = require("multer");
 var flash = require("connect-flash");
-var mongo = require("mongodb");
-var mongoose = require("mongoose");
-var db = mongoose.connection;
-var routes = require("./routes/index");
-var users = require("./routes/users");
 var app = express();
+const User = require("./models/user");
+const { isArray } = require("util");
+const { next } = require("mongodb/lib/operations/cursor_ops");
 
 // view engine setup
 app.set("view engine", "jade");
@@ -36,28 +34,34 @@ app.get("/users/register", (req, res) => {
   res.render("register");
 });
 
-// Validate and register user
-app.post(
-  "/users/register",
-  upload.none(),
+// Validate user details on registration
+//  add a special char validation to this password later
 
-  [
-    body("name", "Name is required").notEmpty(),
-    body("email", "Email is required").notEmpty(),
-    body("email", "Email is not valid").isEmail(),
-    body("username", "Username is required").notEmpty().isLength({ min: 5 }),
-    body("password", "Password is required")
-      .notEmpty()
-      .isLength({ min: 5 })
-      .withMessage("Password must be at least 5 chars long"),
-    body("confirmPassword").custom((value, { req }) => {
-      if (value !== req.body.password) {
-        throw new Error("Passwords do not match");
-      }
-      return true;
-    }),
-  ],
-  (req, res) => {
+// Why can Express’ route methods (app.post, etc.) accept a single handler, multiple functions, or an array of functions, and how does it execute them in sequence to allow middleware like validation, logging, and final response handling?
+
+const validateUser = [
+  body("name").notEmpty().withMessage("Name is required"),
+  body("email").notEmpty().withMessage("Email is required"),
+  body("email").isEmail().withMessage("Email is not valid"),
+  body("username")
+    .notEmpty()
+    .withMessage("Username is required")
+    .isLength({ min: 5 })
+    .withMessage("Username must be at least 5 characters"),
+  body("password")
+    .notEmpty()
+    .withMessage("Password is required")
+    .isLength({ min: 5 })
+    .withMessage("Password must be at least 5 chars long"),
+  body("confirmPassword").custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error("Passwords do not match");
+    }
+    return true;
+  }),
+
+  // 👇 final middleware in the array
+  (req, res, next) => {
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
@@ -68,40 +72,41 @@ app.post(
 
       return res.status(400).render("register", {
         errors: errorMap,
-        formData: req.body || {},
+        formData: req.body,
       });
     }
 
-    res.redirect("login");
+    next(); // ✅ move to createUser
+  },
+];
+
+const createUser = async (req, res) => {
+  try {
+    const { name, email, username, password } = req.body;
+
+    const newUser = new User({ name, email, username, password });
+    await newUser.save();
+
+    res.redirect("login"); // OR res.status(201).json(...)
+  } catch (error) {
+    console.error(error);
+    res.status(500).render("register", {
+      errors: { general: "Server error. Please try again." },
+      formData: req.body,
+    });
   }
-);
+};
 
-// come back to add a special char validation to this
+app.post("/users/register", upload.none(), validateUser, createUser);
 
-// difference between that implementaion and this one below ?
+// Test DB connection and fetch users
 
-//  app.use(expressValidator({
-// 	errorFormator: function(param,msg,value) {
-// 		var namespace = param.split('.')
-// 		, root = namespace.shift()
-// 		, formParam = root;
+async function checkUsers() {
+  const users = await User.find();
+  console.log(users);
+}
 
-// 		while(namespace.length) {
-// 			formParam += '[' + namespace.shift() + ']';
-// 		}
-
-// 		return {
-// 			param 	: formParam,
-// 			msg 	: msg,
-// 			value	: value
-// 		};
-// 	}
-// }));
-
-app.post("/users/login", upload.none(), (req, res) => {
-  console.log(req.body.username);
-  console.log(req.body.password);
-});
+checkUsers();
 
 // listen at
 const PORT = 3000;
