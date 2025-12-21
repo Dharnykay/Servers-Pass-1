@@ -1,3 +1,4 @@
+var bcrypt = require("bcryptjs");
 var express = require("express");
 var path = require("path");
 var favicon = require("serve-favicon");
@@ -38,11 +39,23 @@ app.get("/users/register", (req, res) => {
 //  add a special char validation to this password later
 
 // Why can Express’ route methods (app.post, etc.) accept a single handler, multiple functions, or an array of functions, and how does it execute them in sequence to allow middleware like validation, logging, and final response handling?
+// what is the difference between a middleware and a route handler in express.js, and how do they interact when processing an incoming request?
 
+// validation
 const validateUser = [
   body("name").notEmpty().withMessage("Name is required"),
   body("email").notEmpty().withMessage("Email is required"),
-  body("email").isEmail().withMessage("Email is not valid"),
+  body("email")
+    .isEmail()
+    .withMessage("Email is not valid")
+    .custom(async (email) => {
+      const existingUser = await User.findOne({ email });
+
+      if (existingUser) {
+        throw new Error("Email already in use");
+      }
+      return true;
+    }),
   body("username")
     .notEmpty()
     .withMessage("Username is required")
@@ -60,14 +73,16 @@ const validateUser = [
     return true;
   }),
 
-  // 👇 final middleware in the array
+  //final middleware in the array
   (req, res, next) => {
     const errors = validationResult(req);
-
     if (!errors.isEmpty()) {
       const errorMap = {};
       errors.array().forEach((err) => {
         errorMap[err.path] = err.msg;
+        console.log(errorMap);
+        console.log(errors);
+        console.log(validationResult(req));
       });
 
       return res.status(400).render("register", {
@@ -80,12 +95,21 @@ const validateUser = [
   },
 ];
 
+// user creation
 const createUser = async (req, res) => {
   try {
     const { name, email, username, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    const newUser = new User({ name, email, username, password });
+    const newUser = new User({
+      name,
+      email,
+      username,
+      password: hashedPassword,
+    });
+
     await newUser.save();
+    console.log("User registered:", newUser);
 
     res.redirect("login"); // OR res.status(201).json(...)
   } catch (error) {
@@ -99,14 +123,22 @@ const createUser = async (req, res) => {
 
 app.post("/users/register", upload.none(), validateUser, createUser);
 
-// Test DB connection and fetch users
+app.post("/users/login", upload.none(), async (req, res) => {
+  const { email, password } = req.body;
 
-async function checkUsers() {
-  const users = await User.find();
-  console.log(users);
-}
+  const user = await User.findOne({ email });
 
-checkUsers();
+  if (!user || user.password !== password) {
+    return res.status(401).render("login", {
+      error: "Invalid email or password",
+    });
+  }
+
+  // 🔐 Create session
+  req.session.userId = user._id;
+
+  res.redirect("/dashboard");
+});
 
 // listen at
 const PORT = 3000;
@@ -114,79 +146,12 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// //Handle File Uploads
-// app.use(multer({dest:__dirname+'/uploads/'}).any());
+// You do need to understand these 3 things (you already mostly do):
 
-// // uncomment after placing your favicon in /public
-// app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
-// app.use(logger('dev'));
-// app.use(bodyParser.json());
-// app.use(bodyParser.urlencoded({ extended: false }));
+// HTTP is stateless
 
-// //Handle EXpress Sessions
-// app.use(session({
-// 	secret:'secret' ,
-// 	saveUninitialized: true,
-// 	resave: true
-// }));
+// Cookies are sent automatically by the browser
 
-// //Paasport
-// app.use(passport.initialize());
-// app.use(passport.session());
+// req.session persists across requests
 
-// ///Validator
-// app.use(expressValidator({
-// 	errorFormator: function(param,msg,value) {
-// 		var namespace = param.split('.')
-// 		, root = namespace.shift()
-// 		, formParam = root;
-
-// 		while(namespace.length) {
-// 			formParam += '[' + namespace.shift() + ']';
-// 		}
-
-// 		return {
-// 			param 	: formParam,
-// 			msg 	: msg,
-// 			value	: value
-// 		};
-// 	}
-// }));
-
-// app.use(cookieParser());
-// app.use(express.static(path.join(__dirname, 'public')));
-
-// app.use(flash());
-// app.use(function(req,res,next) {
-// 	res.locals.messages = require('express-messages')(req,res);
-// 	next();
-// });
-
-// app.get('*', function(req,res,next) {
-// 	//local variable to hold user info
-// 	res.locals.user = req.user ||  null;
-// 	next();
-// });
-
-// app.use('/', routes);
-// app.use('/users',users);
-
-// // catch 404 and forward to error handler
-// app.use(function(req, res, next) {
-//   var err = new Error('Not Found');
-//   err.status = 404;
-//   next(err);
-// });
-
-// // error handler
-// app.use(function(err, req, res, next) {
-//   // set locals, only providing error in development
-//   res.locals.message = err.message;
-//   res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-//   // render the error page
-//   res.status(err.status || 500);
-//   res.render('error');
-// });
-
-// module.exports = app;
+// That’s enough to proceed.
