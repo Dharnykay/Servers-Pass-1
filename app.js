@@ -21,9 +21,26 @@ app.set("view engine", "jade");
 app.set("views", path.join(__dirname, "views"));
 
 app.use(express.static(path.join(__dirname, "public")));
+app.use(
+  session({
+    secret: "yourSecretKey",
+    resave: false,
+    saveUninitialized: false, // don’t create session until user logs in
+    cookie: { maxAge: 24 * 60 * 60 * 1000 }, // 1 day
+  })
+);
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+
+app.get("/", (req, res) => {
+  res.render("index");
+});
+
+app.get("/members", (req, res) => {
+  console.log(req.sessionID);
+  res.send("Check console for sessionID");
+});
 
 app.get("/users/login", (req, res) => {
   res.render("login");
@@ -124,22 +141,43 @@ const createUser = async (req, res) => {
 app.post("/users/register", upload.none(), validateUser, createUser);
 
 app.post("/users/login", upload.none(), async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ username });
 
-  if (!user || user.password !== password) {
+  if (!user) {
     return res.status(401).render("login", {
       error: "Invalid email or password",
     });
   }
 
-  // 🔐 Create session
-  req.session.userId = user._id;
+  const isMatch = await bcrypt.compare(password, user.password);
 
-  res.redirect("/dashboard");
+  if (!isMatch) {
+    return res.status(401).render("login", {
+      error: "Invalid email or password",
+    });
+  }
+
+  // 2. Create session (log user in)
+  console.log(req.session);
+  req.session.userId = user._id;
+  console.log(req.sessionID);
+
+  // 3. Redirect to index page
+  res.redirect("/");
 });
 
+// async function revealUsers(req, res) {
+//   try {
+//     const user = await User.findOne({ username: "dharnykay" });
+//     console.log(user._id);
+//   } catch (error) {
+//     console.error(error);
+//   }
+// }
+
+// revealUsers();
 // listen at
 const PORT = 3000;
 app.listen(PORT, () => {
