@@ -6,10 +6,22 @@ block content
 			h1	Login
 			p 	Please Login using the form below
 			label(for='username') Username:
-			input#username.form-control(type='text', placeholder='Enter Username' name='username')
+			input#username.form-control(type='text', placeholder='Email or Username' name='identifier')
+
+			if dberror
+				small.error-text #{dberror}
+
+
 			div.form-group
 			label(for='password') Password:
 			input#password.form-control(type='password', placeholder='Enter Password' name='password')
+
+			if error && error
+				small.error-text #{error}
+
+
+
+
 			br
 			button.btn.btn-primary(type='submit') Login
 							

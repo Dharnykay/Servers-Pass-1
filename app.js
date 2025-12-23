@@ -55,7 +55,6 @@ app.get("/users/register", (req, res) => {
 // Validate user details on registration
 //  add a special char validation to this password later
 
-// Why can Express’ route methods (app.post, etc.) accept a single handler, multiple functions, or an array of functions, and how does it execute them in sequence to allow middleware like validation, logging, and final response handling?
 // what is the difference between a middleware and a route handler in express.js, and how do they interact when processing an incoming request?
 
 // validation
@@ -90,11 +89,14 @@ const validateUser = [
     return true;
   }),
 
+  // can i/should i use the entire validation system which i used for my register page(name, email, username password and confirm password fields) for my login page(just username and password fields)
+
   //final middleware in the array
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       const errorMap = {};
+      console.log(errors.array());
       errors.array().forEach((err) => {
         errorMap[err.path] = err.msg;
         console.log(errorMap);
@@ -138,35 +140,60 @@ const createUser = async (req, res) => {
   }
 };
 
+// Why can Express’ route methods (app.post, etc.) accept a single handler, multiple functions, or an array of functions, and how does it execute them in sequence to allow middleware like validation, logging, and final response handling?
 app.post("/users/register", upload.none(), validateUser, createUser);
 
-app.post("/users/login", upload.none(), async (req, res) => {
-  const { username, password } = req.body;
+app.post(
+  "/users/login",
+  upload.none(),
 
-  const user = await User.findOne({ username });
+  body("identifier").notEmpty().withMessage("Username or Email is required"),
 
-  if (!user) {
-    return res.status(401).render("login", {
-      error: "Invalid email or password",
+  body("password").notEmpty().withMessage("Password is required"),
+
+  async (req, res) => {
+    const errors = validationResult(req);
+    console.log(req.body);
+    if (!errors.isEmpty()) {
+      errorMap = {};
+      errors.array().forEach((err) => {
+        errorMap[err.path] = err.msg;
+      });
+      return res.status(400).render("login", {
+        errors: errorMap,
+        formData: req.body,
+      });
+    }
+
+    const { identifier, password } = req.body;
+
+    const user = await User.findOne({
+      $or: [{ username: identifier }, { email: identifier }],
     });
+
+    if (!user) {
+      return res.status(401).render("login", {
+        dberror: "User not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).render("login", {
+        error: "Invalid password",
+      });
+    }
+
+    // 2. Create session (log user in)
+    console.log(req.session);
+    req.session.userId = user._id;
+    console.log(req.sessionID);
+
+    // 3. Redirect to index page
+    res.redirect("/");
   }
-
-  const isMatch = await bcrypt.compare(password, user.password);
-
-  if (!isMatch) {
-    return res.status(401).render("login", {
-      error: "Invalid email or password",
-    });
-  }
-
-  // 2. Create session (log user in)
-  console.log(req.session);
-  req.session.userId = user._id;
-  console.log(req.sessionID);
-
-  // 3. Redirect to index page
-  res.redirect("/");
-});
+);
 
 // async function revealUsers(req, res) {
 //   try {
